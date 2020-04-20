@@ -7,8 +7,13 @@ const app = express();
 
 app.use(bodyParser.json());
 
-app.post(`/resources`, async (req, res) => {
-   const result = await prisma.resource.create({
+app.get("/users", async (req, res) => {
+   const users = await prisma.user.findMany();
+   res.status(200).json(users);
+});
+
+app.post("/auth/login", async (req, res) => {
+   const result = await prisma.user.create({
       data: {
          ...req.body,
       },
@@ -16,8 +21,8 @@ app.post(`/resources`, async (req, res) => {
    res.json(result);
 });
 
-app.post(`/projects`, async (req, res) => {
-   const result = await prisma.project.create({
+app.post("/auth/register", async (req, res) => {
+   const result = await prisma.user.create({
       data: {
          ...req.body,
       },
@@ -25,50 +30,6 @@ app.post(`/projects`, async (req, res) => {
    res.json(result);
 });
 
-app.post(`/projects/:id/tasks`, async (req, res) => {
-   const { id } = req.params;
-   const result = await prisma.task.create({
-      data: {
-         ...req.body,
-         project: {
-            connect: { id: Number(id) },
-         },
-      },
-   });
-   res.json(result);
-});
-
-app.delete(`/project/:id`, async (req, res) => {
-   const { id } = req.params;
-   const result = await prisma.project.delete({
-      where: {
-         id: Number(id),
-      },
-   });
-   res.status(200).json(result);
-});
-
-app.get(`/projects/:id`, async (req, res) => {
-   const { id } = req.params;
-   const project = await prisma.project.findOne({
-      where: {
-         id: Number(id),
-      },
-      include: { resources: true, tasks: true },
-   });
-   res.status(200).json(project);
-});
-
-app.get("/projects", async (req, res) => {
-   const projects = await prisma.project.findMany();
-   res.status(200).json(projects);
-});
-
-app.get("/resources", async (req, res) => {
-   const resources = await prisma.resource.findMany();
-   res.status(200).json(resources);
-});
-
-const server = app.listen(5000, () =>
+app.listen(5000, () =>
    console.log("🚀 Server ready at: http://localhost:5000\n")
 );
