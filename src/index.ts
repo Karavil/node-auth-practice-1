@@ -1,6 +1,9 @@
 import { PrismaClient } from "@prisma/client";
+
 import * as bodyParser from "body-parser";
 import express from "express";
+import session from "express-session";
+
 import bcrypt from "bcryptjs";
 
 import { User } from "@prisma/client";
@@ -8,9 +11,48 @@ import { User } from "@prisma/client";
 const prisma = new PrismaClient();
 const app = express();
 
-app.use(bodyParser.json());
+// Config for user sessions. User sessions are stored on the server
+const sessionConfig = {
+   name: "session",
+   secret: process.env.SESSION_SECRET || "session secret!",
+   resave: false,
+   saveUninitialized: process.env.SEND_COOKIES === "false" ? false : true,
+   cookie: {
+      maxAge: 1000 * 60 * 10, // good for 10 mins in ms
+      secure: process.env.USE_SECURE_COOKIES === "true" ? true : false, // Requires HTTPS to send/store cookies
+      httpOnly: true, // The JS client can't see the cookie
+   },
+};
 
-app.get("/users", async (req, res) => {
+// Parse json from user requests
+app.use(bodyParser.json());
+// Apply a cookie session to request (only cookie id is stored on user side)
+app.use(session(sessionConfig));
+
+/**
+ * Authenticator middleware for express requests
+ * @param req
+ * @param res
+ * @param next
+ */
+const authenticator = (
+   req: express.Request,
+   res: express.Response,
+   next: express.NextFunction
+) => {
+   if (req && req.session && req.session.loggedIn) {
+      next();
+   } else {
+      res.status(401).json({
+         message: "User not authorized. Please register or log in.",
+      });
+   }
+};
+
+/**
+ * Get all users (if authenticated)
+ */
+app.get("/users", authenticator, async (req, res) => {
    const users: User[] = await prisma.user.findMany();
    res.status(200).json(users);
 });
@@ -26,11 +68,16 @@ app.post("/auth/login", async (req, res) => {
          username: req.body.username,
       },
    });
-   // Compare the hashes of the passwords if the user is found
+
+   // Compare the hashes of the passwords if the user is found (not null)
    if (
       user !== null &&
       bcrypt.compareSync(req.body.password, user.password) === true
    ) {
+      if (req.session) {
+         console.log(req.session);
+         req.session.loggedIn = true;
+      }
       res.status(200).json({ message: "Authenticated. Logging you in..." });
    } else {
       res.status(401).json({ message: "Incorrect password" });
