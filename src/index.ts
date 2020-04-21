@@ -70,12 +70,12 @@ app.post("/auth/login", async (req, res) => {
    });
 
    // Compare the hashes of the passwords if the user is found (not null)
+   // If the user allows cookies, store the session with the request id on the server
    if (
       user !== null &&
       bcrypt.compareSync(req.body.password, user.password) === true
    ) {
       if (req.session) {
-         console.log(req.session);
          req.session.loggedIn = true;
       }
       res.status(200).json({ message: "Authenticated. Logging you in..." });
